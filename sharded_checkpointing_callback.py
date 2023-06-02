@@ -13,9 +13,10 @@ from composer.loggers import Logger
 from composer.loggers.remote_uploader_downloader import RemoteUploaderDownloader
 from composer.utils import (dist, format_name_with_dist_and_time, parse_uri,
                             reproducibility)
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
 
-class ShardedCheckpointSaver():
+class ShardedCheckpointSaver(Callback):
     """Save a monolithic checkpoint every N batches.
 
     Args:
@@ -31,7 +32,7 @@ class ShardedCheckpointSaver():
                  batch_interval: int,
                  filename: str = 'ep{epoch}-ba{batch}.pt',
                  overwrite: bool = False,
-                 keep_optimizers: bool = False,
+                 keep_optimizers: bool = True,
                  fsdp_save_dict_type: str = 'sharded'):
         self.backend, self.bucket_name, self.save_dir_format_str = parse_uri(
             save_folder)
@@ -46,6 +47,13 @@ class ShardedCheckpointSaver():
         else:
             self.remote_ud = None
         self.fsdp_save_dict_type = fsdp_save_dict_type
+    
+    def init(self, state: State, logger: Logger):
+        if self.upload_to_object_store and self.remote_ud is not None:
+            self.remote_ud.init(state, logger)
+            # updated_logger_destinations = [*logger.destinations, new_remote_ud]
+            # logger.destinations = tuple(updated_logger_destinations)
+            state.callbacks.append(self.remote_ud)
 
     def _save_checkpoint(self, state: State):
         filename = format_name_with_dist_and_time(self.filename_format_str,
@@ -71,9 +79,14 @@ class ShardedCheckpointSaver():
             with fsdp_state_dict_type_context(state.model,
                                               state_dict_type=self.fsdp_save_dict_type):
                 state_dict['state']['model'] = state.model.state_dict()
-                torch.save(state_dict, save_path)
-            if self.upload_to_object_store and self.remote_ud is not None and dist.get_global_rank(
-            ) == 0:
+            assert self.fsdp_save_dict_type == 'sharded'
+                
+            optim_state_dict = FSDP.sharded_optim_state_dict(model=state.model, optim=state.optimizers[0])
+            print ("optim state dict is: ", optim_state_dict)
+            for optimizer in state_dict['state']['optimizers']:
+                state_dict['state']['optimizers'][optimizer] = optim_state_dict
+            torch.save(state_dict, save_path)
+            if self.upload_to_object_store and self.remote_ud is not None:
                 remote_file_name = str(Path(save_dir) / Path(filename))
                 self.remote_ud.upload_file(state=state,
                                            remote_file_name=remote_file_name,

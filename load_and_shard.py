@@ -10,7 +10,9 @@ from examples.llm.src import COMPOSER_MODEL_REGISTRY
 from composer.core import Event
 
 from composer.utils import dist, get_device, reproducibility
-
+from composer.callbacks import (HealthChecker, LRMonitor, MemoryMonitor,
+                                OptimizerMonitor, RuntimeEstimator,
+                                SpeedMonitor)
 
 from examples.common.builders import (build_algorithm, build_callback,
                                       build_icl_evaluators, build_logger,
@@ -41,14 +43,46 @@ def build_dataloader(cfg, device_batch_size):
     else:
         raise ValueError(f'Not sure how to build dataloader with config: {cfg}')
 
+def build_callback(name, kwargs):
+    if name == 'lr_monitor':
+        return LRMonitor()
+    elif name == 'memory_monitor':
+        return MemoryMonitor()
+    elif name == 'speed_monitor':
+        return SpeedMonitor(window_size=kwargs.get('window_size', 1),
+                            gpu_flops_available=kwargs.get(
+                                'gpu_flops_available', None))
+    elif name == 'fdiff':
+        return FDiffMetrics(**kwargs)
+    elif name == 'runtime_estimator':
+        return RuntimeEstimator()
+    elif name == 'optimizer_monitor':
+        return OptimizerMonitor(log_optimizer_metrics=kwargs.get(
+            'log_optimizer_metrics', True),)
+    elif name == 'health_checker':
+        return HealthChecker(**kwargs)
+    elif name == 'generate_callback':
+        prompts = kwargs.pop('prompts')
+        return Generate(prompts=list(prompts), **kwargs)
+    elif name == 'global_lr_scaling':
+        return GlobalLRScaling(**kwargs)
+    elif name == 'layer_freezing':
+        return LayerFreezing(**kwargs)
+    elif name == 'mono_ckpt_saver':
+        return MonolithicCheckpointSaver(**kwargs)
+    elif name == 'scheduled_gc':
+        return ScheduledGarbageCollector(**kwargs)
+    elif name == "sharded_ckpt_saver":
+        return ShardedCheckpointSaver(**kwargs)
+    else:
+        raise ValueError(f'Not sure how to build callback: {name}')
+
 def main(cfg):
 
     reproducibility.seed_all(cfg.seed)
 
     model_cfg = cfg.model
     model = build_composer_model(model_cfg, cfg.tokenizer)
-    
-    sharded_checkpoint_saver = ShardedCheckpointSaver(**cfg.sharded_ckpt_saver)
 
     # Get batch size info
     cfg = update_batch_size_info(cfg)
@@ -77,10 +111,10 @@ def main(cfg):
     print(f'{cfg.n_params=:.2e}')
 
     # Dataloaders
-    print('Building train loader...')
-    train_loader = build_dataloader(cfg.train_loader,
-                                    cfg.device_train_batch_size)
-    print('Building eval loader...')
+    # print('Building train loader...')
+    # train_loader = build_dataloader(cfg.train_loader,
+    #                                 cfg.device_train_batch_size)
+    # print('Building eval loader...')
     evaluators = []
     if 'eval_loader' in cfg:
         eval_loader = Evaluator(label='eval',
@@ -124,13 +158,13 @@ def main(cfg):
         run_name=cfg.run_name,
         seed=cfg.seed,
         model=model,
-        train_dataloader=train_loader,
+        # train_dataloader=train_loader,
         eval_dataloader=evaluators,
         optimizers=optimizer,
         schedulers=scheduler,
         max_duration=cfg.max_duration,
-        eval_interval=cfg.eval_interval,
-        eval_subset_num_batches=cfg.get('eval_subset_num_batches', -1),
+        # eval_interval=cfg.eval_interval,
+        # eval_subset_num_batches=cfg.get('eval_subset_num_batches', -1),
         progress_bar=cfg.get('progress_bar', False),
         log_to_console=cfg.get('log_to_console', True),
         console_log_interval=cfg.get('console_log_interval', '1ba'),
@@ -158,7 +192,13 @@ def main(cfg):
         dist_timeout=cfg.dist_timeout,
     )
 
-    sharded_checkpoint_saver._save_checkpoint(trainer.state)
+    print ("optimizer state dict is: ", trainer.state.optimizers[0].state_dict())
+
+    for callback in callbacks:
+        if isinstance(callback, ShardedCheckpointSaver):
+            print ("trying to save")
+            callback._save_checkpoint(trainer.state)
+            print ("saved checkpoints")
 
 if __name__ == '__main__':
     yaml_path, args_list = sys.argv[1], sys.argv[2:]
