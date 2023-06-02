@@ -1,5 +1,6 @@
 import sys
 import os
+import torch
 import warnings
 
 from composer import Trainer
@@ -78,7 +79,6 @@ def build_callback(name, kwargs):
         raise ValueError(f'Not sure how to build callback: {name}')
 
 def main(cfg):
-
     reproducibility.seed_all(cfg.seed)
 
     model_cfg = cfg.model
@@ -113,7 +113,7 @@ def main(cfg):
     # Dataloaders
     # print('Building train loader...')
     # train_loader = build_dataloader(cfg.train_loader,
-    #                                 cfg.device_train_batch_size)
+                                    # cfg.device_train_batch_size)
     # print('Building eval loader...')
     evaluators = []
     if 'eval_loader' in cfg:
@@ -191,8 +191,6 @@ def main(cfg):
         python_log_level=cfg.get('python_log_level', None),
         dist_timeout=cfg.dist_timeout,
     )
-
-    print ("optimizer state dict is: ", trainer.state.optimizers[0].state_dict())
 
     for callback in callbacks:
         if isinstance(callback, ShardedCheckpointSaver):
