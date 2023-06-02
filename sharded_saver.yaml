@@ -1,0 +1,57 @@
+tokenizer_name: EleutherAI/gpt-neox-20b
+max_seq_len: 2048
+
+tokenizer:
+  kwargs:
+    model_max_length: ${max_seq_len}
+  name: ${tokenizer_name}
+
+model:
+  attn_uses_sequence_id: false
+  alibi: true
+  attn_impl: triton
+  attn_pdrop: 0
+  attn_qk_ln: true
+  d_model: 2048
+  emb_pdrop: 0
+  init_device: cpu
+  init_nonlinearity: relu
+  low_precision_layernorm: true
+  max_seq_len: ${max_seq_len}
+  mlp_ratio: 4
+  n_heads: 16
+  n_layers: 24
+  name: mosaic_gpt
+  no_bias: true
+  param_init_fn: kaiming_normal_
+  resid_pdrop: 0
+  tokenizer_name: ${tokenizer_name}
+  vocab_size: 50432
+  output_vocab: True
+
+fsdp_config:
+  sharding_strategy: FULL_SHARD
+  mixed_precision: PURE
+  activation_checkpointing: true
+  activation_cpu_offload: false
+  verbose: true
+  state_dict_type: full
+
+load_path: ../rlhf/rlhf/ift-ep5-ba630-rank0.pt
+save_folder: ./temp
+
+optimizer:
+  name: decoupled_adamw
+  lr: 1.0e-6
+  betas:
+    - 0.9
+    - 0.95
+  eps: 1e-9
+  weight_decay: 0.0
+
+callbacks:
+  sharded_ckpt_saver:
+      batch_interval: 2000
+      filename: ep{epoch}-ba{batch}/rank{rank}.pt
+      save_folder: ${save_folder}/sharded
+      fsdp_save_dict_type: sharded
