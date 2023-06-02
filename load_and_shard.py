@@ -45,10 +45,8 @@ def build_tokenizer(om_tokenizer_config: DictConfig,):
     return tokenizer
 
 def main(cfg):
-    tokenizer = build_tokenizer(cfg.tokenizer)
-
     model_cfg = cfg.model
-    model = build_composer_model(model_cfg, tokenizer)
+    model = build_composer_model(model_cfg, cfg.tokenizer)
     
     sharded_checkpoint_saver = ShardedCheckpointSaver(**cfg.callbacks.sharded_ckpt_saver)
 
