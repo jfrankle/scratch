@@ -81,6 +81,16 @@ def build_callback(name, kwargs):
 def main(cfg):
     reproducibility.seed_all(cfg.seed)
 
+    og_state_dict = torch.load(cfg.load_path)
+
+    del og_state_dict['state']['model']
+    optimizer_name = list(og_state_dict['state']['optimizers'].keys())[0]
+    print ("optimizer name is: ", optimizer_name)
+    del og_state_dict['state']['optimizers']
+
+    for key in og_state_dict['state'].keys():
+        print ("key is: ", key)
+
     model_cfg = cfg.model
     model = build_composer_model(model_cfg, cfg.tokenizer)
 
@@ -195,7 +205,7 @@ def main(cfg):
     for callback in callbacks:
         if isinstance(callback, ShardedCheckpointSaver):
             print ("trying to save")
-            callback._save_checkpoint(trainer.state)
+            callback._save_checkpoint(trainer.state, og_state_dict, optimizer_name)
             print ("saved checkpoints")
 
 if __name__ == '__main__':

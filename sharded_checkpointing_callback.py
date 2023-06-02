@@ -55,7 +55,7 @@ class ShardedCheckpointSaver(Callback):
             # logger.destinations = tuple(updated_logger_destinations)
             state.callbacks.append(self.remote_ud)
 
-    def _save_checkpoint(self, state: State):
+    def _save_checkpoint(self, state: State, state_dict, optimizer_name):
         filename = format_name_with_dist_and_time(self.filename_format_str,
                                                   state.run_name,
                                                   state.timestamp)
@@ -70,10 +70,10 @@ class ShardedCheckpointSaver(Callback):
             dirname = os.path.dirname(save_path)
             if dirname:
                 os.makedirs(dirname, exist_ok=True)
-            state_dict = {
-                'state': state.state_dict(),
-                'rng': reproducibility.get_rng_state()
-            }
+            # state_dict = {
+                # 'state': state.state_dict(),
+                # 'rng': reproducibility.get_rng_state()
+            # }
             if not self.keep_optimizers:
                 state_dict['state'].pop('optimizers')
             with fsdp_state_dict_type_context(state.model,
@@ -83,8 +83,8 @@ class ShardedCheckpointSaver(Callback):
                 
             optim_state_dict = FSDP.sharded_optim_state_dict(model=state.model, optim=state.optimizers[0])
             print ("optim state dict is: ", optim_state_dict)
-            for optimizer in state_dict['state']['optimizers']:
-                state_dict['state']['optimizers'][optimizer] = optim_state_dict
+            state_dict['state']['optimizers'] = {}
+            state_dict['state']['optimizers'][optimizer_name] = optim_state_dict
             torch.save(state_dict, save_path)
             if self.upload_to_object_store and self.remote_ud is not None:
                 remote_file_name = str(Path(save_dir) / Path(filename))
@@ -92,3 +92,13 @@ class ShardedCheckpointSaver(Callback):
                                            remote_file_name=remote_file_name,
                                            file_path=Path(save_path),
                                            overwrite=self.overwrite)
+
+    # def get_sharded_model_and_optimizer(self, state):
+        # with fsdp_state_dict_type_context(state.model,
+                                        #  state_dict_type=self.fsdp_save_dict_type):
+            # model_state_dict = state.model.state_dict()
+            # state_dict['state']['model'] = state.model.state_dict()
+            # assert self.fsdp_save_dict_type == 'sharded'
+                
+            # optim_state_dict = FSDP.sharded_optim_state_dict(model=state.model, optim=state.optimizers[0])
+            # return model_state_dict, optim_state_dict
