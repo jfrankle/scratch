@@ -3,6 +3,7 @@ import os
 import warnings
 
 from composer import Trainer
+from composer.core import Evaluator
 from omegaconf import OmegaConf as om
 from omegaconf import DictConfig
 from examples.llm.src import COMPOSER_MODEL_REGISTRY
@@ -14,6 +15,8 @@ from composer.utils import dist, get_device, reproducibility
 from examples.common.builders import (build_algorithm, build_callback,
                                       build_icl_evaluators, build_logger,
                                       build_optimizer, build_scheduler)
+
+from examples.common.config_utils import log_config, update_batch_size_info
 
 from sharded_checkpointing_callback import ShardedCheckpointSaver
 
