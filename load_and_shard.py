@@ -19,6 +19,7 @@ from examples.common.builders import (build_algorithm, build_callback,
 from examples.common.config_utils import log_config, update_batch_size_info
 
 from sharded_checkpointing_callback import ShardedCheckpointSaver
+from examples.common.text_data import build_text_dataloader
 
 from transformers import (AutoTokenizer, PreTrainedTokenizer,
                           PreTrainedTokenizerFast)
