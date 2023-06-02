@@ -53,8 +53,7 @@ def main(cfg):
     trainer = Trainer(model=model,
             fsdp_config=cfg.fsdp_config,
             load_path=cfg.load_path,
-            # callbacks=callbacks,
-            # max_duration=0,
+            load_ignore_keys=cfg.load_ignore_keys,
             )
 
     sharded_checkpoint_saver._save_checkpoint(trainer.state)
