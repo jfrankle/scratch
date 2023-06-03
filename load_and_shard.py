@@ -106,7 +106,7 @@ def main(cfg):
     evaluators = []
     if 'eval_loader' in cfg:
         eval_loader = Evaluator(label='eval',
-                                dataloader=build_dataloader(,
+                                dataloader=build_dataloader(
                                     cfg,
                                     cfg.eval_loader,
                                     cfg.device_eval_batch_size),
