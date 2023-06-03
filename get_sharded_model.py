@@ -58,6 +58,7 @@ def main(cfg):
 
     # This otherwise breaks w/ torch 2.0
     fsdp_config['use_orig_params'] = False
+    fsdp_config['state_dict_type'] = 'full'
     fsdp_config['sync_module_states'] = True
 
     prepare_fsdp_module(model, [], fsdp_config, precision=precision, device=device, auto_microbatching=False)
