@@ -25,7 +25,13 @@ def load_optimizer_checkpoint(model, cfg, state_dict, state_optimizer_name):
 
     full_optim_state_dict = None
     if dist.get_local_rank() == 0:
+        print ("loading optimizer state dict")
         full_optim_state_dict = state_dict['state']['optimizers'][state_optimizer_name]
+        print ("loaded optimizer state dict")
+
+    print ("before dist barrier")
+    dist.barrier()
+    print ("after dist barrier")
 
     # This really just makes rank 0 scatter everything
     return FullyShardedDataParallel.scatter_full_optim_state_dict(full_optim_state_dict, model)
@@ -33,7 +39,7 @@ def load_optimizer_checkpoint(model, cfg, state_dict, state_optimizer_name):
 def main(cfg):
     device = get_device(None)
 
-    dist.initialize_dist(device, timeout=3000)
+    dist.initialize_dist(device, timeout=60)
 
     model_cfg = cfg.model
     if dist.get_local_rank() == 0:
@@ -51,8 +57,6 @@ def main(cfg):
         state_dict = torch.load(cfg.mono_checkpoint_path)
         model.load_state_dict(state_dict['state']['model'])
         print ("lod")
-    
-    dist.barrier()
 
     precision = Precision('amp_bf16')
 
@@ -62,14 +66,16 @@ def main(cfg):
                                   resolve=True) if fsdp_config else None
 
     # This otherwise breaks w/ torch 2.0
-    fsdp_config['use_orig_params'] = False
+    fsdp_config['use_orig_params'] = True
     fsdp_config['state_dict_type'] = 'full'
     fsdp_config['sync_module_states'] = True
+    fsdp_config['mixed_precision'] = 'FULL'
 
     prepare_fsdp_module(model, [], fsdp_config, precision=precision, device=device, auto_microbatching=False)
 
     print ("before building optimizer")
     optimizer = build_optimizer(cfg.optimizer, model)
+    print ("after loading optimizer")
     optimizer_state_dict = load_optimizer_checkpoint(model, cfg, state_dict, state_optimizer_name)
     print ("after got optimizer state dict")
     optimizer.load_state_dict(optimizer_state_dict)
