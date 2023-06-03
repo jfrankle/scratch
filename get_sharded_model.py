@@ -36,6 +36,9 @@ def main(cfg):
     dist.initialize_dist(device, timeout=3000)
 
     model_cfg = cfg.model
+    if dist.get_local_rank() == 0:
+        model_cfg.init_device = 'cpu'
+
     model = build_composer_model(model_cfg, cfg.tokenizer)
 
     # Just the state dict itself
@@ -44,8 +47,10 @@ def main(cfg):
 
     state_dict = None
     if dist.get_local_rank() == 0:
+        print ("loaded checkpoint")
         state_dict = torch.load(cfg.mono_checkpoint_path)
         model.load_state_dict(state_dict['state']['model'])
+        print ("lod")
     
     dist.barrier()
 
@@ -63,9 +68,12 @@ def main(cfg):
 
     prepare_fsdp_module(model, [], fsdp_config, precision=precision, device=device, auto_microbatching=False)
 
+    print ("before building optimizer")
     optimizer = build_optimizer(cfg.optimizer, model)
     optimizer_state_dict = load_optimizer_checkpoint(model, cfg, state_dict, state_optimizer_name)
+    print ("after got optimizer state dict")
     optimizer.load_state_dict(optimizer_state_dict)
+    print ("after loaded optimizer state dict")
 
     with fsdp_state_dict_type_context(model, state_dict_type='sharded'):
         raw_state_dict['state']['model'] = model.state_dict()
