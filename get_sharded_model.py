@@ -66,7 +66,7 @@ def main(cfg):
                                   resolve=True) if fsdp_config else None
 
     # This otherwise breaks w/ torch 2.0
-    fsdp_config['use_orig_params'] = True
+    fsdp_config['use_orig_params'] = False
     fsdp_config['state_dict_type'] = 'full'
     fsdp_config['sync_module_states'] = True
     fsdp_config['mixed_precision'] = 'FULL'
