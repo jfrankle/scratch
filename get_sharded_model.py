@@ -69,8 +69,9 @@ def main(cfg):
 
     with fsdp_state_dict_type_context(model, state_dict_type='sharded'):
         raw_state_dict['state']['model'] = model.state_dict()
-    
-    raw_state_dict['state']['optimizers'][state_optimizer_name] = FullyShardedDataParallel.sharded_optim_state_dict(model=model.model, optim=optimizer)
+
+        # This works with torch 2.0...
+        raw_state_dict['state']['optimizers'][state_optimizer_name] = FullyShardedDataParallel.optim_state_dict(model, optimizer)
 
     torch.save(raw_state_dict, f"temp/rank{dist.get_global_rank()}.pt")
 
