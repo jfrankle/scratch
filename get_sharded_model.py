@@ -56,6 +56,9 @@ def main(cfg):
     fsdp_config = om.to_container(fsdp_config,
                                   resolve=True) if fsdp_config else None
 
+    # This otherwise breaks w/ torch 2.0
+    fsdp_config['use_orig_params'] = False
+
     prepare_fsdp_module(model, [], fsdp_config, precision=precision, device=device, auto_microbatching=False)
 
     optimizer = build_optimizer(cfg.optimizer, model)
