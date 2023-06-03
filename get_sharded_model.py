@@ -33,7 +33,7 @@ def load_optimizer_checkpoint(model, cfg, state_dict, state_optimizer_name):
 def main(cfg):
     device = get_device(None)
 
-    dist.initialize_dist(device, timeout=300)
+    dist.initialize_dist(device, timeout=3000)
 
     model_cfg = cfg.model
     model = build_composer_model(model_cfg, cfg.tokenizer)
