@@ -1,4 +1,5 @@
 import torch
+from packaging import version
 import warnings
 import sys
 from omegaconf import OmegaConf as om
@@ -39,7 +40,7 @@ def load_optimizer_checkpoint(model, cfg, state_dict, state_optimizer_name):
 def main(cfg):
     device = get_device(None)
 
-    dist.initialize_dist(device, timeout=60)
+    dist.initialize_dist(device, timeout=cfg.dist_timeout)
 
     model_cfg = cfg.model
     if dist.get_local_rank() == 0:
@@ -85,7 +86,10 @@ def main(cfg):
         raw_state_dict['state']['model'] = model.state_dict()
 
         # This works with torch 2.0...
-        raw_state_dict['state']['optimizers'][state_optimizer_name] = FullyShardedDataParallel.optim_state_dict(model, optimizer)
+        if version.parse(torch.__version__) >= version.parse('2.0.0'):
+            raw_state_dict['state']['optimizers'][state_optimizer_name] = FullyShardedDataParallel.optim_state_dict(model, optimizer)
+        else:
+            raw_state_dict['state']['optimizers'][state_optimizer_name] = FullyShardedDataParallel.sharded_optim_state_dict(model=model, optim=optimizer)
 
     torch.save(raw_state_dict, f"temp/rank{dist.get_global_rank()}.pt")
 
