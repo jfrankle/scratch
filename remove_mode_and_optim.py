@@ -6,11 +6,15 @@ import os
 import sys
 import warnings
 import torch
+import composer
 
 from omegaconf import OmegaConf as om
 
 def main(cfg):
 
+    print ("going to download: ", cfg.remote_path)
+    composer.utils.get_file(cfg.remote_path, cfg.mono_checkpoint_path)
+    print ("finished downloading")
     state_dict = torch.load(cfg.mono_checkpoint_path)
 
     del state_dict['state']['model']
