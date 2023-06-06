@@ -77,9 +77,9 @@ def main(cfg):
     print ("before building optimizer")
     optimizer = build_optimizer(cfg.optimizer, model)
     print ("after loading optimizer")
-    optimizer_state_dict = load_optimizer_checkpoint(model, cfg, state_dict, state_optimizer_name)
+    #optimizer_state_dict = load_optimizer_checkpoint(model, cfg, state_dict, state_optimizer_name)
     print ("after got optimizer state dict")
-    optimizer.load_state_dict(optimizer_state_dict)
+    #optimizer.load_state_dict(optimizer_state_dict)
     print ("after loaded optimizer state dict")
 
     with fsdp_state_dict_type_context(model, state_dict_type='sharded'):
